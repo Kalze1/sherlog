@@ -1,0 +1,6 @@
+{"__REALTIME_TIMESTAMP":"1714557600000000","_HOSTNAME":"app01","SYSLOG_IDENTIFIER":"sshd","_PID":"3001","MESSAGE":"Failed password for root from 192.0.2.99 port 50000 ssh2","_SYSTEMD_UNIT":"ssh.service","_TRANSPORT":"syslog"}
+{"__REALTIME_TIMESTAMP":"1714557660000000","_HOSTNAME":"app01","SYSLOG_IDENTIFIER":"sshd","_PID":"3002","MESSAGE":"Accepted publickey for ops from 192.0.2.99 port 50001 ssh2: RSA SHA256:QwErTy123","_TRANSPORT":"syslog"}
+{"__REALTIME_TIMESTAMP":"1714557720000000","_HOSTNAME":"app01","_TRANSPORT":"kernel","MESSAGE":"Linux version 6.8.0-31-generic (buildd@lcy02) #31-Ubuntu"}
+{"__REALTIME_TIMESTAMP":"1714557780000000","_HOSTNAME":"app01","SYSLOG_IDENTIFIER":"myapp","MESSAGE":[104,105,255,33]}
+{"__REALTIME_TIMESTAMP":"1714557840000000","_HOSTNAME":"app01","SYSLOG_IDENTIFIER":"systemd","MESSAGE":"Started cron.service - Regular background program processing daemon."}
+{not valid json

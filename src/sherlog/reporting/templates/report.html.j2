@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="generator" content="{{ tool.name }} {{ tool.version }}">
+<title>Investigation report — {{ case.name }}</title>
+<style>
+  :root {
+    --fg: #1d2330; --muted: #5b6475; --bg: #ffffff; --panel: #f5f7fa; --line: #dde2ea;
+    --crit: #9b1c1c; --high: #c2410c; --med: #a16207; --low: #0e7490; --info: #64748b;
+    --rule: #166534; --analyst: #1d4ed8; --ai: #7e22ce;
+  }
+  * { box-sizing: border-box; }
+  body { font: 14px/1.5 -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+         color: var(--fg); background: var(--bg); margin: 0; }
+  main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 26px; margin: 0 0 4px; }
+  h2 { font-size: 20px; margin: 40px 0 12px; padding-bottom: 6px; border-bottom: 2px solid var(--line); }
+  h3 { font-size: 16px; margin: 24px 0 8px; }
+  h4 { font-size: 15px; margin: 0 0 8px; }
+  p { margin: 0 0 10px; }
+  code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
+  .muted { color: var(--muted); }
+  table { width: 100%; border-collapse: collapse; margin: 8px 0 16px; font-size: 13px; }
+  th, td { text-align: left; vertical-align: top; padding: 5px 8px; border-bottom: 1px solid var(--line); }
+  th { background: var(--panel); font-weight: 600; }
+  td.hash { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11px; word-break: break-all; }
+  .wrap { overflow-x: auto; }
+  .meta td:first-child { width: 190px; color: var(--muted); }
+  .badge { display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 11px; font-weight: 600;
+           color: #fff; vertical-align: middle; white-space: nowrap; }
+  .sev-critical { background: var(--crit); } .sev-high { background: var(--high); }
+  .sev-medium { background: var(--med); } .sev-low { background: var(--low); } .sev-info { background: var(--info); }
+  .by-rule { background: var(--rule); } .by-analyst { background: var(--analyst); }
+  .by-ai_proposed { background: var(--ai); }
+  .verdict-malicious { background: var(--crit); } .verdict-suspicious { background: var(--med); }
+  .verdict-clean { background: var(--rule); } .verdict-unknown { background: var(--info); }
+  .counts { display: flex; gap: 10px; flex-wrap: wrap; margin: 12px 0; }
+  .count { flex: 1 1 110px; background: var(--panel); border-radius: 8px; padding: 10px 12px; }
+  .count b { display: block; font-size: 22px; }
+  .finding { border: 1px solid var(--line); border-left: 5px solid var(--info); border-radius: 6px;
+             padding: 14px 16px; margin: 12px 0; break-inside: avoid; }
+  .finding.critical { border-left-color: var(--crit); } .finding.high { border-left-color: var(--high); }
+  .finding.medium { border-left-color: var(--med); } .finding.low { border-left-color: var(--low); }
+  .finding.ai_proposed { border-style: dashed; }
+  .narrative { white-space: pre-wrap; }
+  .alert { background: #fef2f2; border: 1px solid #fecaca; color: var(--crit); padding: 10px 12px; border-radius: 6px; }
+  .ok { color: var(--rule); font-weight: 600; }
+  .matrix { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+  .tactic { background: var(--panel); border-radius: 6px; padding: 8px 10px; }
+  .tactic h4 { font-size: 13px; }
+  .tactic a { display: block; font-size: 12px; margin: 3px 0; }
+  blockquote { margin: 0 0 12px; padding: 8px 12px; background: var(--panel); border-left: 3px solid var(--line); white-space: pre-wrap; }
+  details summary { cursor: pointer; color: var(--muted); }
+  footer { margin-top: 48px; color: var(--muted); font-size: 12px; }
+  @media print {
+    main { max-width: none; padding: 0; }
+    h2 { break-before: page; }
+    h2.first { break-before: avoid; }
+    a { color: inherit; text-decoration: none; }
+    details { display: block; } details > summary { display: none; }
+  }
+  @page { size: A4; margin: 16mm 14mm; @bottom-right { content: counter(page) " / " counter(pages); font-size: 9px; } }
+</style>
+</head>
+<body>
+<main>
+<header>
+  <p class="muted">Digital forensics investigation report</p>
+  <h1>{{ case.name }}</h1>
+  <table class="meta">
+    <tr><td>Case ID</td><td class="mono">{{ case.id }}</td></tr>
+    <tr><td>Investigator</td><td>{{ case.investigator }}</td></tr>
+    <tr><td>Case created</td><td>{{ case.created_at }}</td></tr>
+    <tr><td>Report generated</td><td>{{ generated_at }}</td></tr>
+    <tr><td>Case timezone</td><td>{{ case.timezone }}</td></tr>
+    <tr><td>Tool</td><td>{{ tool.name }} {{ tool.version }} (Python {{ tool.python }})</td></tr>
+    <tr><td>Evidence integrity</td><td>
+      {% if verification is none %}<span class="muted">not re-verified</span>
+      {% elif verification.ok %}<span class="ok">verified — all files match intake hashes</span>
+      {% else %}<span class="badge sev-critical">FAILED</span>{% endif %}</td></tr>
+  </table>
+  <p class="muted">Provenance:
+    <span class="badge by-rule">rule</span> deterministic detection ·
+    <span class="badge by-analyst">analyst</span> confirmed by the investigator ·
+    <span class="badge by-ai_proposed">AI-proposed</span> hypothesis not yet confirmed</p>
+  {% if case.brief %}<h3>Case brief</h3><blockquote>{{ case.brief }}</blockquote>{% endif %}
+</header>
+
+<h2 class="first">1. Executive summary</h2>
+{% if ai.draft %}
+{% for para in ai.draft.executive_summary.split("\n\n") %}<p>{{ para }}</p>{% endfor %}
+<p class="muted"><span class="badge by-ai_proposed">AI-drafted</span> by {{ ai.draft.model }} from confirmed findings only{% if ai.draft.edited %}, edited{% endif %}; accepted by {{ ai.draft.reviewed_by }} on {{ ai.draft.reviewed_at }}.</p>
+<h3>Key facts (generated automatically)</h3>
+<ul>{% for p in executive_summary %}<li>{{ p }}</li>{% endfor %}</ul>
+{% else %}
+{% for p in executive_summary %}<p>{{ p }}</p>{% endfor %}
+{% endif %}
+<div class="counts">
+  {% for s in ["critical", "high", "medium", "low", "info"] %}
+  <div class="count"><span class="badge sev-{{ s }}">{{ s }}</span><b>{{ severity_counts[s] }}</b></div>
+  {% endfor %}
+</div>
+
+{% if ai.draft and ai.draft.narrative %}
+<h3>1.1 Incident narrative</h3>
+{% for para in ai.draft.narrative.split("\n\n") %}<p>{{ para }}</p>{% endfor %}
+<p class="muted">AI-drafted narrative reviewed and accepted by {{ ai.draft.reviewed_by }}; see the findings for the supporting evidence.</p>
+{% endif %}
+
+<h2>2. Scope and evidence</h2>
+<p>{{ stats.events }} events were parsed from {{ evidence.total_files }} files in
+{{ evidence["items"] | length }} evidence item(s).
+{% if stats.first_event %}Dated events span {{ stats.first_event }} to {{ stats.last_event }} (UTC).{% endif %}</p>
+
+{% if verification is not none %}
+<h3>2.1 Integrity verification at report time</h3>
+{% if not verification.ok %}<p class="alert">Evidence changed since intake. Conclusions from affected files must be treated with caution.</p>{% endif %}
+<ul>
+{% for r in verification["items"] %}
+  <li>Item #{{ r.item_id }} <b>{{ r.label }}</b>:
+  {% if r.ok %}<span class="ok">OK</span> ({{ r.files_checked }} files re-hashed)
+  {% else %}<span class="badge sev-critical">FAILED</span>
+    {% for p in r.problems %}{{ p.status }} <code>{{ p.rel_path }}</code>{% if not loop.last %}, {% endif %}{% endfor %}
+  {% endif %}</li>
+{% endfor %}
+</ul>
+{% endif %}
+
+<h3>2.2 Evidence items and chain of custody</h3>
+{% for item in evidence["items"] %}
+<h4>Item #{{ item.id }}: {{ item.label }}</h4>
+<table class="meta">
+  <tr><td>Source path</td><td class="mono">{{ item.source_path }}</td></tr>
+  <tr><td>Added</td><td>{{ item.added_at }} by {{ item.added_by }}{% if item.source_note %} — {{ item.source_note }}{% endif %}</td></tr>
+  <tr><td>Files</td><td>{{ item.file_count }} ({{ item.total_bytes | bytes }})</td></tr>
+  <tr><td>Item digest</td><td class="hash">{{ item.item_digest }}</td></tr>
+</table>
+<div class="wrap"><table>
+  <tr><th>Time (UTC)</th><th>Action</th><th>Actor</th><th>OS user</th><th>Workstation</th><th>Note</th></tr>
+  {% for c in item.custody %}
+  <tr><td>{{ c.timestamp }}</td><td>{{ c.action }}</td><td>{{ c.actor }}</td><td>{{ c.os_user }}</td><td>{{ c.workstation }}</td><td>{{ c.note or "" }}</td></tr>
+  {% endfor %}
+</table></div>
+<details open><summary>{{ item.file_count }} files with hashes</summary>
+<div class="wrap"><table>
+  <tr><th>File</th><th>Kind</th><th>Size</th><th>SHA-256 / MD5</th><th>Artifact</th><th>Events</th></tr>
+  {% for f in item.files %}
+  <tr><td class="mono">{{ f.rel_path }}</td><td>{{ f.kind }}</td><td>{{ f.size if f.size is not none else "" }}</td>
+      <td class="hash">{{ f.sha256 or "" }}<br><span class="muted">{{ f.md5 or "" }}</span></td>
+      <td>{{ f.artifact_type or "" }}{% if f.status and f.status != "parsed" %} <span class="muted">({{ f.status }})</span>{% endif %}</td>
+      <td>{{ f.events or "" }}</td></tr>
+  {% endfor %}
+</table></div>
+{% if item.files_truncated %}<p class="muted">File list truncated; the complete inventory is in manifest.json.</p>{% endif %}
+</details>
+{% endfor %}
+
+<h3>2.3 Artifacts identified</h3>
+<table>
+  <tr><th>Artifact type</th><th>Status</th><th>Files</th><th>Events</th></tr>
+  {% for a in stats.artifacts %}<tr><td>{{ a.artifact_type }}</td><td>{{ a.status }}</td><td>{{ a.files }}</td><td>{{ a.events }}</td></tr>{% endfor %}
+</table>
+
+<h2>3. Methodology and standards</h2>
+<table>
+  <tr><th>Phase (NIST SP 800-86)</th><th>What SherLog did</th><th>Standards</th></tr>
+  {% for m in methodology %}<tr><td>{{ m.phase }}</td><td>{{ m.sherlog }}</td><td>{{ m.standards | join(", ") }}</td></tr>{% endfor %}
+</table>
+<ul>
+  {% for s in standards %}<li><b>{{ s.ref }}</b> — {{ s.title }}. <span class="muted">{{ s.scope }}</span></li>{% endfor %}
+</ul>
+
+<h2>4. Timeline of key events</h2>
+<p class="muted">Events supporting the reported findings{% if timeline_total > timeline | length %} (first {{ timeline | length }} of {{ timeline_total }}; all events are in events.jsonl){% endif %}. Times are UTC; * marks a timezone assumed from the case settings.</p>
+<div class="wrap"><table>
+  <tr><th>Time (UTC)</th><th>Host</th><th>Type</th><th>Actor</th><th>Source IP</th><th>Detail</th><th>Findings</th></tr>
+  {% for e in timeline %}
+  <tr><td class="mono">{{ (e.timestamp_utc or "undated")[:19] }}{% if e.timezone_assumed %}*{% endif %}</td>
+      <td>{{ e.host or "" }}</td><td><span class="badge sev-{{ e.severity }}">{{ e.event_type }}</span></td>
+      <td>{{ e.actor or "" }}</td><td class="mono">{{ e.src_ip or "" }}</td>
+      <td class="mono">{{ (e.command or e.target or e.raw) | truncate(140) }}</td>
+      <td>{% for fid in e.finding_ids %}<a href="#f{{ fid }}">#{{ fid }}</a> {% endfor %}</td></tr>
+  {% endfor %}
+</table></div>
+
+<h2>5. Findings</h2>
+{% if not findings %}<p>No findings.</p>{% endif %}
+{% for severity, group in findings_by_severity %}
+<h3>5.{{ loop.index }} {{ severity | capitalize }} ({{ group | length }})</h3>
+{% for f in group %}
+<section class="finding {{ f.severity }} {{ f.verified_by }}" id="f{{ f.id }}">
+  <h4>#{{ f.id }} {{ f.title }}
+    <span class="badge sev-{{ f.severity }}">{{ f.severity }}</span>
+    <span class="badge by-{{ f.verified_by }}">{{ "AI-proposed" if f.verified_by == "ai_proposed" else f.verified_by }}</span>
+    {% if f.status != "open" %}<span class="muted">({{ f.status }})</span>{% endif %}</h4>
+  <table class="meta">
+    <tr><td>Confidence</td><td>{{ "%.2f" | format(f.confidence) }}</td></tr>
+    <tr><td>Window (UTC)</td><td>{{ f.first_seen or "undated" }}{% if f.last_seen and f.last_seen != f.first_seen %} → {{ f.last_seen }}{% endif %}</td></tr>
+    <tr><td>Supporting events</td><td>{{ f.event_count }}</td></tr>
+    <tr><td>ATT&amp;CK</td><td>{% for t in f.attack_techniques %}<a href="{{ t.url }}">{{ t.id }}</a> {{ t.name or "" }}{% if not loop.last %}<br>{% endif %}{% else %}none{% endfor %}</td></tr>
+    <tr><td>CVEs</td><td>{% for c in f.cves %}{{ c.id }} <span class="muted">(evidence: {{ c.evidence_reference }})</span>{% if not loop.last %}<br>{% endif %}{% else %}none attributed{% endfor %}</td></tr>
+    <tr><td>Rule</td><td class="mono">{{ f.rule_id }}</td></tr>
+    {% if f.context.get("stale") %}<tr><td>Note</td><td>No longer matches current evidence.</td></tr>{% endif %}
+  </table>
+  <p class="narrative">{{ f.narrative }}</p>
+  {% if f.analyst_note %}<p><b>Analyst note:</b> {{ f.analyst_note }}</p>{% endif %}
+  <p><b>Recommendation:</b> {{ f.recommendations | join(" ") }}</p>
+  <details><summary>Evidence references ({{ f.evidence_refs | length }} of {{ f.event_count }})</summary>
+  <div class="wrap"><table>
+    <tr><th>Source</th><th>Time (UTC)</th><th>Raw</th></tr>
+    {% for r in f.evidence_refs %}
+    <tr><td class="mono">{{ r.rel_path }}:{{ r.line_number }}<br><span class="muted">{{ (r.sha256 or "")[:16] }}…</span></td>
+        <td>{{ r.timestamp_utc or "" }}</td><td class="mono">{{ r.raw | truncate(220) }}</td></tr>
+    {% endfor %}
+  </table></div></details>
+</section>
+{% endfor %}
+{% endfor %}
+
+<h2>6. Indicators of compromise</h2>
+{% if iocs %}
+<p class="muted">Indicators linked to reported findings or flagged by threat intelligence{% if ioc_other_count %}; {{ ioc_other_count }} further observables are in the case database{% endif %}.</p>
+<div class="wrap"><table>
+  <tr><th>Type</th><th>Value</th><th>Verdict</th><th>Findings</th><th>First / last seen</th><th>Intelligence</th></tr>
+  {% for i in iocs %}<tr><td>{{ i.type }}</td><td class="mono">{{ i.value }}</td>
+    <td><span class="badge verdict-{{ i.verdict }}">{{ i.verdict }}</span></td>
+    <td>{% for fid in i.finding_ids %}<a href="#f{{ fid }}">#{{ fid }}</a> {% endfor %}</td>
+    <td>{{ i.first_seen or "" }}<br>{{ i.last_seen or "" }}</td><td>{{ i.intel }}</td></tr>{% endfor %}
+</table></div>
+{% else %}<p>No IOCs are linked to the reported findings{% if ioc_other_count %} ({{ ioc_other_count }} other observables are in the case database){% endif %}.</p>{% endif %}
+
+<h2>7. MITRE ATT&amp;CK coverage</h2>
+{% if coverage %}
+<div class="matrix">
+  {% for c in coverage %}
+  <div class="tactic"><h4>{{ c.name }}</h4>
+    {% for t in c.techniques %}<a href="{{ t.url }}">{{ t.id }} {{ t.name }}</a>{% endfor %}
+  </div>
+  {% endfor %}
+</div>
+{% else %}<p>No ATT&amp;CK techniques are associated with the reported findings.</p>{% endif %}
+
+<h2>8. Recommendations</h2>
+{% for phase, title, entries in recommendations %}
+<h3>8.{{ loop.index }} {{ title }}</h3>
+<ul>
+  {% for r in entries %}<li>{{ r.text }}{% if r.finding_ids %} <span class="muted">(findings {% for fid in r.finding_ids %}<a href="#f{{ fid }}">#{{ fid }}</a>{% if not loop.last %}, {% endif %}{% endfor %})</span>{% endif %}</li>{% endfor %}
+</ul>
+{% endfor %}
+
+<h2>9. Limitations and assumptions</h2>
+<ul>{% for l in limitations %}<li>{{ l }}</li>{% endfor %}</ul>
+
+<h2>Appendix A. Audit log</h2>
+<div class="wrap"><table>
+  <tr><th>#</th><th>Time (UTC)</th><th>Actor</th><th>Action</th><th>Details</th></tr>
+  {% for a in audit_log %}<tr><td>{{ a.id }}</td><td>{{ a.timestamp }}</td><td>{{ a.actor }}</td><td>{{ a.action }}</td><td class="mono">{{ a.details | tojson_compact | truncate(400) }}</td></tr>{% endfor %}
+</table></div>
+
+<h2>Appendix B. Detection rules applied</h2>
+{% if rules %}
+<div class="wrap"><table>
+  <tr><th>Rule</th><th>Title</th><th>Level</th><th>Rule file hash</th><th>Matches</th></tr>
+  {% for r in rules %}<tr><td class="mono">{{ r.key }}</td><td>{{ r.title or "" }}</td><td>{{ r.level or "" }}</td><td class="mono">{{ r.sha256_prefix }}</td><td>{{ r.matches if r.matches is not none else "" }}</td></tr>{% endfor %}
+</table></div>
+{% else %}<p>sherlog analyze has not been run for this case.</p>{% endif %}
+
+<h2>Appendix C. AI investigation</h2>
+{% if ai.used %}
+<p>AI-proposed findings are labelled <span class="badge by-ai_proposed">AI-proposed</span> until the analyst accepts them. Every exchange with the provider is stored in the case database exactly as sent (pseudonymized when redaction was on).</p>
+<div class="wrap"><table>
+  <tr><th>Run</th><th>Started (UTC)</th><th>Provider / model</th><th>Redaction</th><th>Rounds</th><th>Tokens</th><th>Status</th><th>Proposed</th></tr>
+  {% for r in ai.runs %}<tr><td>{{ r.id }}</td><td>{{ (r.started_at or "")[:19] }}</td><td>{{ r.provider }} / {{ r.model }}</td>
+    <td>{% if r.redaction %}on{% else %}<span class="badge sev-critical">OFF</span>{% endif %}</td><td>{{ r.iterations }}</td>
+    <td>{{ r.input_tokens + r.output_tokens }}</td><td>{{ r.status }}{% if r.replay_of %} (replay of {{ r.replay_of }}){% endif %}</td><td>{{ r.proposed }}</td></tr>{% endfor %}
+</table></div>
+{% if ai.hypotheses %}
+<h3>Unverified hypotheses</h3>
+<ul>{% for h in ai.hypotheses %}<li><b>H{{ h.id }}</b> {{ h.statement }}{% if h.event_ids %} <span class="muted">(events {{ h.event_ids | join(", ") }})</span>{% endif %}{% if h.suggested_checks %}<br><span class="muted">Checks: {{ h.suggested_checks | join("; ") }}</span>{% endif %}</li>{% endfor %}</ul>
+{% endif %}
+{% else %}<p>No AI-assisted investigation was run for this case.</p>{% endif %}
+
+{% if rejected %}
+<h2>Appendix D. Findings dismissed by the analyst</h2>
+<table>
+  <tr><th>#</th><th>Title</th><th>Rule</th><th>Analyst note</th></tr>
+  {% for r in rejected %}<tr><td>{{ r.id }}</td><td>{{ r.title }}</td><td class="mono">{{ r.rule_id }}</td><td>{{ r.analyst_note or "" }}</td></tr>{% endfor %}
+</table>
+{% endif %}
+
+<footer>Generated by {{ tool.name }} {{ tool.version }} on {{ tool.platform }} at {{ generated_at }}.</footer>
+</main>
+</body>
+</html>

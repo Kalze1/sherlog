@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# SherLog case data — real evidence must never be committed
+cases/
+*.sherlog.db
+
+# Secrets / local config
+.env
+config.toml
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Generated sample evidence (python -m samples.generate)
+samples/out/

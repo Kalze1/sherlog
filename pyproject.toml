@@ -1,0 +1,104 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "sherlog"
+dynamic = ["version"]
+description = "AI-assisted Linux log forensics and incident response (DFIR) tool"
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+requires-python = ">=3.11"
+authors = [{ name = "Kaleab" }]
+keywords = ["dfir", "forensics", "incident-response", "linux", "logs", "sigma"]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Information Technology",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Security",
+    "Topic :: System :: Logging",
+]
+dependencies = [
+    "jinja2>=3.1",
+    "pyyaml>=6.0",
+    "rich>=15.0.0",
+    "sqlalchemy>=2.0",
+    "stix2>=3.0",
+    "typer>=0.27.2",
+]
+
+[project.optional-dependencies]
+# PDF output; WeasyPrint also needs Pango (e.g. apt install libpango-1.0-0 libpangoft2-1.0-0).
+pdf = ["weasyprint>=60"]
+# Offline GeoIP/ASN lookups from a MaxMind .mmdb file.
+geoip = ["maxminddb>=2.0"]
+ai = [
+    "anthropic>=1.0",
+]
+
+[project.scripts]
+sherlog = "sherlog.cli:app"
+
+[project.urls]
+Homepage = "https://github.com/Kalze1/sherlog"
+Issues = "https://github.com/Kalze1/sherlog/issues"
+
+[dependency-groups]
+dev = [
+    "anthropic>=1.0",
+    "mypy>=2.3.1",
+    "pre-commit>=4.6.2",
+    "pytest>=9.1.1",
+    "ruff>=0.16.9",
+    "types-pyyaml>=6.0.12.20260906",
+]
+
+[tool.hatch.version]
+path = "src/sherlog/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/sherlog"]
+
+# Ship the Sigma rule set inside the package (repo-root rules/ -> sherlog/rules/).
+[tool.hatch.build.targets.wheel.force-include]
+"rules" = "sherlog/rules"
+
+[tool.hatch.build.targets.sdist]
+include = ["src/sherlog", "rules", "tests", "README.md", "LICENSE", "pyproject.toml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF"]
+# "a b c".split() word lists read better than long list literals.
+ignore = ["SIM905"]
+
+[tool.ruff.lint.per-file-ignores]
+# Scenario generators embed verbatim log lines.
+"samples/generate/scenario_*.py" = ["E501"]
+
+[tool.mypy]
+python_version = "3.11"
+mypy_path = "src"
+packages = ["sherlog"]
+warn_unused_ignores = true
+warn_redundant_casts = true
+check_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = ["stix2", "stix2.*"]
+ignore_missing_imports = true

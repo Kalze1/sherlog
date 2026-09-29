@@ -1,0 +1,211 @@
+# Persistence mechanism rules.
+title: New or modified cron job
+id: 3f4e5d6c-2222-4a33-9b02-3c4d5e6f3001
+status: stable
+description: A cron entry was added or a crontab was edited (a common persistence mechanism).
+logsource:
+  product: linux
+detection:
+  entry:
+    event_type:
+      - cron.entry
+      - cron.modify
+  condition: entry
+level: medium
+tags:
+  - attack.persistence
+  - attack.t1053.003
+falsepositives:
+  - Legitimate scheduled maintenance jobs.
+x-sherlog:
+  recommendation: Review the scheduled command; investigate any job that downloads or executes remote content or runs from a temporary directory.
+  confidence: 0.5
+  group_by:
+    - actor
+    - command
+---
+title: Suspicious cron command
+id: 3f4e5d6c-2222-4a33-9b02-3c4d5e6f3002
+status: stable
+description: >
+  A cron job whose command downloads and runs remote content or executes from
+  a world-writable/temporary directory — a strong persistence indicator.
+logsource:
+  product: linux
+detection:
+  cron:
+    event_type:
+      - cron.entry
+      - cron.exec
+      - cron.modify
+  suspicious:
+    command|re|i: '(curl|wget|fetch).*(\||;|&&|`|\$\()|/tmp/|/dev/shm/|/var/tmp/|base64\s+-d|python.*-c|nc\s|/\.\w'
+  condition: cron and suspicious
+level: high
+tags:
+  - attack.persistence
+  - attack.t1053.003
+  - attack.t1059.004
+x-sherlog:
+  recommendation: Treat the scheduled command as malicious until proven otherwise; capture the referenced script and remove the cron entry.
+  confidence: 0.75
+  group_by:
+    - actor
+    - command
+---
+title: Systemd service or timer created
+id: 3f4e5d6c-2222-4a33-9b02-3c4d5e6f3003
+status: experimental
+description: A systemd service or timer unit was created, which can establish persistence.
+logsource:
+  product: linux
+detection:
+  audit:
+    artifact_type: linux.audit
+    extra.name|re|i: '/(etc|lib|run)/systemd/system/.*\.(service|timer)$'
+  condition: audit
+level: medium
+tags:
+  - attack.persistence
+  - attack.t1543.002
+  - attack.t1053.006
+falsepositives:
+  - Package installation and legitimate service deployment.
+x-sherlog:
+  recommendation: Confirm the unit corresponds to installed software; inspect its ExecStart for suspicious commands.
+  confidence: 0.5
+  group_by:
+    - target
+---
+title: SSH authorized_keys entry present
+id: 3f4e5d6c-2222-4a33-9b02-3c4d5e6f3004
+status: stable
+description: >
+  An authorized_keys file grants key-based access. Review each key; a forced
+  command or an unrecognised key can indicate attacker-installed persistence.
+logsource:
+  product: linux
+detection:
+  sel:
+    event_type: ssh.key.present
+  condition: sel
+level: low
+tags:
+  - attack.persistence
+  - attack.t1098.004
+falsepositives:
+  - Legitimate user and automation keys.
+x-sherlog:
+  recommendation: Confirm each key belongs to an authorised user; correlate fingerprints with the accepted-publickey logins in the timeline.
+  confidence: 0.35
+  group_by:
+    - actor
+    - target
+---
+title: authorized_keys modified via shell or audit
+id: 3f4e5d6c-2222-4a33-9b02-3c4d5e6f3005
+status: stable
+description: A command or audited file access wrote to an authorized_keys file.
+logsource:
+  product: linux
+detection:
+  audit:
+    artifact_type: linux.audit
+    extra.name|contains: authorized_keys
+  cmd:
+    command|contains: authorized_keys
+  write_ish:
+    command|re|i: '(>>|>|tee|cat|echo|curl|wget|cp|mv)'
+  condition: audit or (cmd and write_ish)
+level: high
+tags:
+  - attack.persistence
+  - attack.t1098.004
+x-sherlog:
+  recommendation: Compare the authorized_keys content against known-good keys and remove any unrecognised entry.
+  confidence: 0.65
+  group_by:
+    - actor
+---
+title: Shell startup file modified
+id: 3f4e5d6c-2222-4a33-9b02-3c4d5e6f3006
+status: experimental
+description: >
+  A shell initialisation file (.bashrc, .bash_profile, .profile, /etc/profile,
+  /etc/bash.bashrc) was written, which can persist code across logins.
+logsource:
+  product: linux
+detection:
+  audit:
+    artifact_type: linux.audit
+    extra.name|re|i: '(\.bashrc|\.bash_profile|\.profile|/etc/profile|bash\.bashrc|\.bash_login|/etc/profile\.d/)'
+  cmd:
+    command|re|i: '(>>|>|tee|sed -i).*(\.bashrc|\.bash_profile|\.profile|/etc/profile|bash\.bashrc)'
+  condition: audit or cmd
+level: medium
+tags:
+  - attack.persistence
+  - attack.t1546.004
+falsepositives:
+  - Users editing their own shell configuration.
+x-sherlog:
+  recommendation: Inspect the modified startup file for commands that fetch or execute external content.
+  confidence: 0.5
+  group_by:
+    - actor
+---
+title: Execution or write from a temporary directory
+id: 3f4e5d6c-2222-4a33-9b02-3c4d5e6f3007
+status: stable
+description: >
+  A binary or script under /tmp, /dev/shm or /var/tmp was executed or created.
+  Attackers stage tools in these world-writable directories.
+logsource:
+  product: linux
+detection:
+  audit_exec:
+    artifact_type: linux.audit
+    event_type: process.exec
+    command|re: '(^|/)(/tmp/|/dev/shm/|/var/tmp/)|[= ](/tmp/|/dev/shm/|/var/tmp/)'
+  audit_file:
+    artifact_type: linux.audit
+    extra.exe|re: '^(/tmp/|/dev/shm/|/var/tmp/)'
+  condition: audit_exec or audit_file
+level: high
+tags:
+  - attack.defense_evasion
+  - attack.execution
+  - attack.t1059.004
+  - attack.t1036.005
+falsepositives:
+  - Package build scripts and installers that use temporary directories.
+x-sherlog:
+  recommendation: Capture and analyse the staged file; determine how it arrived and what it executed.
+  confidence: 0.65
+  group_by:
+    - actor
+    - command
+---
+title: Kernel module loaded out-of-tree (possible rootkit)
+id: 3f4e5d6c-2222-4a33-9b02-3c4d5e6f3008
+status: experimental
+description: The kernel reported loading an unsigned/out-of-tree module and being tainted.
+logsource:
+  product: linux
+detection:
+  sel:
+    tags|contains: taint
+  condition: sel
+level: high
+tags:
+  - attack.defense_evasion
+  - attack.persistence
+  - attack.t1547.006
+  - attack.t1014
+falsepositives:
+  - Legitimate third-party drivers (GPU, VirtualBox, DKMS modules).
+x-sherlog:
+  recommendation: Identify the module; if it is not an expected driver, treat the host as compromised and investigate for a rootkit.
+  confidence: 0.5
+  group_by:
+    - host

@@ -1,0 +1,4 @@
+# deploy keys
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl deploy@laptop
+from="203.0.113.0/24",command="/usr/local/bin/backup.sh",no-pty ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl backup
+ssh-rsa not-base64!! broken

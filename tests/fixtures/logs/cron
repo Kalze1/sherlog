@@ -1,0 +1,5 @@
+May  1 10:01:01 db01 CROND[3100]: (root) CMD (run-parts /etc/cron.hourly)
+May  1 10:01:01 db01 run-parts(/etc/cron.hourly)[3102]: starting 0anacron
+May  1 10:01:01 db01 anacron[3110]: Job `cron.daily' started
+May  1 10:05:00 db01 crontab[3200]: (apache) REPLACE (apache)
+May  1 10:06:01 db01 CROND[3300]: (apache) CMD (/var/www/html/uploads/.cache.sh)

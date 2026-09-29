@@ -1,0 +1,6 @@
+May  1 10:00:00 web01 kernel: [    0.000000] Linux version 5.15.0-91-generic (buildd@lcy02-amd64-045) (gcc 11.4.0)
+May  1 10:40:00 web01 kernel: [ 2400.123456] [UFW BLOCK] IN=eth0 OUT= MAC=00:00 SRC=203.0.113.77 DST=10.0.0.5 LEN=60 TOS=0x00 PREC=0x00 TTL=52 ID=0 DF PROTO=TCP SPT=40000 DPT=3306 WINDOW=64240 RES=0x00 SYN URGP=0
+May  1 10:41:00 web01 kernel: [ 2460.000001] nc[2102]: segfault at 0 ip 00007f0000000000 sp 00007ffc00000000 error 4 in libc.so.6
+May  1 10:42:00 web01 kernel: [ 2520.000002] diamorphine: loading out-of-tree module taints kernel.
+May  1 10:43:00 web01 kernel: [ 2580.000003] device eth0 entered promiscuous mode
+May  1 10:44:00 web01 kernel: [ 2640.000004] EXT4-fs (sda1): re-mounted. Opts: errors=remount-ro

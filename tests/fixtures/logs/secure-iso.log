@@ -1,0 +1,4 @@
+2024-05-01T10:00:00.123456+03:00 db01 sshd[2001]: Failed password for root from 192.0.2.10 port 40001 ssh2
+2024-05-01T10:00:05.000000+03:00 db01 sshd[2002]: Accepted password for alice from 192.0.2.10 port 40002 ssh2
+2024-05-01T10:01:00+03:00 db01 sudo:    alice : TTY=pts/1 ; PWD=/home/alice ; USER=root ; COMMAND=/usr/bin/id
+2024-05-01T10:02:00 db01 sshd[2003]: Server listening on 0.0.0.0 port 22.

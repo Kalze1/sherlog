@@ -1,0 +1,10 @@
+Mar  3 08:00:00 web01 kernel: [    0.000000] Linux version 5.15.0-91-generic (buildd@lcy02-amd64-045) (gcc 11.4.0)
+Mar  3 08:00:01 web01 kernel: [    1.234567] EXT4-fs (sda1): mounted filesystem with ordered data mode
+Mar  3 08:00:05 web01 rsyslogd: [origin software="rsyslogd" swVersion="8.2112.0" x-pid="600" x-info="https://www.rsyslog.com"] start
+Mar  3 08:00:06 web01 systemd[1]: Started ssh.service - OpenBSD Secure Shell server.
+Mar  3 08:05:01 web01 CRON[900]: (root) CMD (/tmp/.x/update.sh >/dev/null 2>&1)
+Mar  3 08:06:00 web01 crontab[950]: (www-data) REPLACE (www-data)
+Mar  3 08:07:00 web01 systemd[1]: Stopped Regular background program processing daemon.
+Mar  3 08:08:00 web01 rsyslogd: [origin software="rsyslogd" swVersion="8.2112.0" x-pid="600"] exiting on signal 15.
+Mar  3 08:09:00 web01 dhclient[400]: DHCPACK of 10.0.0.5 from 10.0.0.1
+Mar  3 08:10:00 web01 systemd[1]: Failed to start Nightly backup.

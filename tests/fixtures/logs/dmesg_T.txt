@@ -1,0 +1,2 @@
+[Wed May  1 10:00:00 2024] Linux version 6.8.0-31-generic (buildd@lcy02-amd64-080)
+[Wed May  1 10:43:00 2024] device eth0 entered promiscuous mode

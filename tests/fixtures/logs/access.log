@@ -1,0 +1,7 @@
+203.0.113.77 - - [01/May/2024:10:00:00 +0300] "GET /index.php HTTP/1.1" 200 5120 "-" "Mozilla/5.0 (X11; Linux x86_64)"
+203.0.113.77 - - [01/May/2024:10:00:05 +0300] "GET /index.php?page=../../../../etc/passwd HTTP/1.1" 200 2233 "-" "sqlmap/1.7.2#stable (https://sqlmap.org)"
+203.0.113.77 - - [01/May/2024:10:00:09 +0300] "POST /uploads/shell.php HTTP/1.1" 200 88 "http://web01/upload.php" "python-requests/2.31.0"
+203.0.113.77 - admin [01/May/2024:10:00:12 +0300] "GET /uploads/shell.php?cmd=id HTTP/1.1" 200 54 "-" "curl/8.5.0" "198.51.100.9"
+198.51.100.2 - - [01/May/2024:10:01:00 +0300] "\x16\x03\x01\x02\x00\x01\x00\x01\xfc\x03\x03" 400 157 "-" "-"
+2001:db8::7 - - [01/May/2024:10:02:00 +0300] "HEAD / HTTP/1.0" 301 - "-" "Nmap Scripting Engine"
+garbage line that is not an access log entry

@@ -1,0 +1,238 @@
+{#- SherLog investigation report (Markdown). Data comes from reporting/context.py. -#}
+{#- Lines mixing text with a trailing block tag end in {{ "" }} so trim_blocks keeps their newline. -#}
+# Investigation report: {{ case.name }}
+
+| | |
+| --- | --- |
+| Case ID | `{{ case.id }}` |
+| Investigator | {{ case.investigator | cell }} |
+| Case created | {{ case.created_at }} |
+| Report generated | {{ generated_at }} |
+| Case timezone | {{ case.timezone }} |
+| Tool | {{ tool.name }} {{ tool.version }} (Python {{ tool.python }}) |
+| Evidence integrity | {% if verification is none %}not re-verified{% elif verification.ok %}verified — all files match intake hashes{% else %}**FAILED**{% endif %} |
+
+Provenance labels used throughout: **[RULE]** deterministic detection, **[ANALYST]** confirmed or
+added by the investigator, **[AI-PROPOSED]** hypothesis from the AI assistant not yet confirmed.
+
+{% if case.brief %}
+**Case brief**
+
+{% for line in case.brief.splitlines() %}> {{ line }}
+{% endfor %}
+{% endif %}
+
+## 1. Executive summary
+
+{% if ai.draft %}
+{{ ai.draft.executive_summary }}
+
+_Drafted by the AI assistant ({{ ai.draft.model }}) from confirmed findings only{% if ai.draft.edited %}, edited{% endif %} and accepted by {{ ai.draft.reviewed_by }} on {{ ai.draft.reviewed_at }}._{{ "" }}
+
+**Key facts (generated automatically):**
+
+{% for p in executive_summary %}- {{ p }}
+{% endfor %}
+{% else %}
+{% for p in executive_summary %}{{ p }}
+
+{% endfor %}
+{% endif %}
+| Critical | High | Medium | Low | Info |
+| --- | --- | --- | --- | --- |
+| {{ severity_counts.critical }} | {{ severity_counts.high }} | {{ severity_counts.medium }} | {{ severity_counts.low }} | {{ severity_counts.info }} |
+
+{% if ai.draft and ai.draft.narrative %}
+### 1.1 Incident narrative
+
+{{ ai.draft.narrative }}
+
+_AI-drafted narrative reviewed and accepted by {{ ai.draft.reviewed_by }}; see the findings for the supporting evidence._{{ "" }}
+
+{% endif %}
+## 2. Scope and evidence
+
+{{ stats.events }} events were parsed from {{ evidence.total_files }} files in {{ evidence["items"] | length }} evidence item(s).
+{% if stats.first_event %}Dated events span {{ stats.first_event }} to {{ stats.last_event }} (UTC).{% endif %}{{ "" }}
+
+{% if verification is not none %}
+### 2.1 Integrity verification at report time
+
+{% for r in verification["items"] %}- Item #{{ r.item_id }} **{{ r.label | cell }}**: {% if r.ok %}OK ({{ r.files_checked }} files re-hashed){% else %}**FAILED** — {% for p in r.problems %}{{ p.status }} `{{ p.rel_path }}`{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}{{ "" }}
+{% endfor %}
+{% endif %}
+
+### 2.2 Evidence items and chain of custody
+
+{% for item in evidence["items"] %}
+#### Item #{{ item.id }}: {{ item.label | cell }}
+
+- Source path: `{{ item.source_path }}`
+- Added {{ item.added_at }} by {{ item.added_by | cell }}{% if item.source_note %} — {{ item.source_note | cell }}{% endif %}{{ "" }}
+- Files: {{ item.file_count }} ({{ item.total_bytes | bytes }}); item digest `{{ item.item_digest }}`
+
+| Time (UTC) | Action | Actor | OS user | Workstation | Note |
+| --- | --- | --- | --- | --- | --- |
+{% for c in item.custody %}| {{ c.timestamp }} | {{ c.action }} | {{ c.actor | cell }} | {{ c.os_user | cell }} | {{ c.workstation | cell }} | {{ c.note | cell }} |
+{% endfor %}
+
+| File | Kind | Size | SHA-256 | MD5 | Artifact | Events |
+| --- | --- | --- | --- | --- | --- | --- |
+{% for f in item.files %}| `{{ f.rel_path | cell }}` | {{ f.kind }} | {{ f.size if f.size is not none else "" }} | `{{ f.sha256 or "" }}` | `{{ f.md5 or "" }}` | {{ f.artifact_type or "" }}{% if f.status and f.status != "parsed" %} ({{ f.status }}){% endif %} | {{ f.events or "" }} |
+{% endfor %}
+{% if item.files_truncated %}
+_File list truncated; the complete inventory is in `manifest.json`._
+{% endif %}
+{% endfor %}
+
+### 2.3 Artifacts identified
+
+| Artifact type | Status | Files | Events |
+| --- | --- | --- | --- |
+{% for a in stats.artifacts %}| {{ a.artifact_type }} | {{ a.status }} | {{ a.files }} | {{ a.events }} |
+{% endfor %}
+
+## 3. Methodology and standards
+
+| Phase (NIST SP 800-86) | What SherLog did | Standards |
+| --- | --- | --- |
+{% for m in methodology %}| {{ m.phase }} | {{ m.sherlog | cell }} | {{ m.standards | join(", ") }} |
+{% endfor %}
+
+Standards referenced:
+
+{% for s in standards %}- **{{ s.ref }}** — {{ s.title }}. {{ s.scope }}
+{% endfor %}
+
+## 4. Timeline of key events
+
+Events that support the reported findings{% if timeline_total > timeline | length %} (first {{ timeline | length }} of {{ timeline_total }}; all events are in `events.jsonl`){% endif %}. Times are UTC; `*` marks a timezone assumed from the case settings.
+
+| Time (UTC) | Host | Type | Actor | Source IP | Detail | Findings |
+| --- | --- | --- | --- | --- | --- | --- |
+{% for e in timeline %}| {{ (e.timestamp_utc or "undated")[:19] }}{% if e.timezone_assumed %}*{% endif %} | {{ e.host | cell }} | {{ e.event_type }} | {{ e.actor | cell }} | {{ e.src_ip | cell }} | {{ (e.command or e.target or e.raw) | cell | truncate(120) }} | {% for fid in e.finding_ids %}#{{ fid }}{% if not loop.last %}, {% endif %}{% endfor %} |
+{% endfor %}
+
+## 5. Findings
+
+{% if not findings %}No findings.{% endif %}{{ "" }}
+{% for severity, group in findings_by_severity %}
+### 5.{{ loop.index }} {{ severity | capitalize }} ({{ group | length }})
+
+{% for f in group %}
+#### #{{ f.id }} {{ f.title }} {{ f.verified_by | badge }}
+
+| | |
+| --- | --- |
+| Severity / confidence | {{ f.severity }} / {{ "%.2f" | format(f.confidence) }} |
+| Status | {{ f.status }}{% if f.context.get("stale") %} (no longer matches current evidence){% endif %} |
+| Window (UTC) | {{ f.first_seen or "undated" }}{% if f.last_seen and f.last_seen != f.first_seen %} → {{ f.last_seen }}{% endif %} |
+| Supporting events | {{ f.event_count }} |
+| ATT&CK | {% for t in f.attack_techniques %}[{{ t.id }}]({{ t.url }}) {{ t.name or "" }}{% if not loop.last %}; {% endif %}{% else %}none{% endfor %} |
+| CVEs | {% for c in f.cves %}{{ c.id }} (evidence: {{ c.evidence_reference | cell }}){% if not loop.last %}; {% endif %}{% else %}none attributed{% endfor %} |
+| Rule | `{{ f.rule_id }}` |
+
+{{ f.narrative }}
+
+{% if f.analyst_note %}**Analyst note:** {{ f.analyst_note }}
+
+{% endif %}
+**Recommendation:** {{ f.recommendations | join(" ") }}
+
+Evidence references:
+
+{% for r in f.evidence_refs %}- `{{ r.rel_path }}:{{ r.line_number }}` (sha256 `{{ (r.sha256 or "")[:16] }}…`) {{ r.timestamp_utc or "" }} — `{{ r.raw | truncate(160) | code }}`
+{% endfor %}{% if f.event_count > f.evidence_refs | length %}- … {{ f.event_count - f.evidence_refs | length }} more (see `findings.json`)
+{% endif %}
+
+{% endfor %}
+{% endfor %}
+
+## 6. Indicators of compromise
+
+{% if iocs %}
+Indicators linked to reported findings or flagged by threat intelligence{% if ioc_other_count %}; {{ ioc_other_count }} further observables are in the case database (`sherlog iocs --all`){% endif %}.
+
+| Type | Value | Verdict | Findings | First seen | Last seen | Intelligence |
+| --- | --- | --- | --- | --- | --- | --- |
+{% for i in iocs %}| {{ i.type }} | `{{ i.value | cell | code }}` | {{ i.verdict }} | {% for fid in i.finding_ids %}#{{ fid }}{% if not loop.last %}, {% endif %}{% endfor %} | {{ i.first_seen or "" }} | {{ i.last_seen or "" }} | {{ i.intel | cell }} |
+{% endfor %}
+{% else %}
+No IOCs are linked to the reported findings{% if ioc_other_count %} ({{ ioc_other_count }} other observables are in the case database){% endif %}.
+{% endif %}
+
+## 7. MITRE ATT&CK coverage
+
+{% if coverage %}
+| Tactic | Techniques observed |
+| --- | --- |
+{% for c in coverage %}| {{ c.name }} | {% for t in c.techniques %}[{{ t.id }}]({{ t.url }}) {{ t.name }} ({% for fid in t.finding_ids %}#{{ fid }}{% if not loop.last %}, {% endif %}{% endfor %}){% if not loop.last %}<br>{% endif %}{% endfor %} |
+{% endfor %}
+{% else %}
+No ATT&CK techniques are associated with the reported findings.
+{% endif %}
+
+## 8. Recommendations
+
+{% for phase, title, entries in recommendations %}
+### 8.{{ loop.index }} {{ title }}
+
+{% for r in entries %}- {{ r.text }}{% if r.finding_ids %} _(findings {% for fid in r.finding_ids %}#{{ fid }}{% if not loop.last %}, {% endif %}{% endfor %})_{% endif %}{{ "" }}
+{% endfor %}
+
+{% endfor %}
+
+## 9. Limitations and assumptions
+
+{% for l in limitations %}- {{ l }}
+{% endfor %}
+
+## Appendix A. Audit log
+
+| # | Time (UTC) | Actor | Action | Details |
+| --- | --- | --- | --- | --- |
+{% for a in audit_log %}| {{ a.id }} | {{ a.timestamp }} | {{ a.actor | cell }} | {{ a.action }} | `{{ a.details | tojson_compact | truncate(300) | code }}` |
+{% endfor %}
+
+## Appendix B. Detection rules applied
+
+{% if rules %}
+| Rule | Title | Level | Rule file hash | Matches |
+| --- | --- | --- | --- | --- |
+{% for r in rules %}| `{{ r.key }}` | {{ r.title | cell }} | {{ r.level or "" }} | `{{ r.sha256_prefix }}` | {{ r.matches if r.matches is not none else "" }} |
+{% endfor %}
+{% else %}
+`sherlog analyze` has not been run for this case.
+{% endif %}
+
+## Appendix C. AI investigation
+
+{% if ai.used %}
+AI-proposed findings are labelled **[AI-PROPOSED]** above until the analyst accepts them. Every exchange with the provider is stored in the case database (`sherlog ai show <case> <run>`) exactly as sent, i.e. with pseudonymized identifiers when redaction was on.
+
+| Run | Started (UTC) | Provider / model | Redaction | Rounds | Tokens | Status | Findings proposed |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+{% for r in ai.runs %}| {{ r.id }} | {{ (r.started_at or "")[:19] }} | {{ r.provider }} / {{ r.model }} | {{ "on" if r.redaction else "**OFF**" }} | {{ r.iterations }} | {{ r.input_tokens + r.output_tokens }} | {{ r.status }}{% if r.replay_of %} (replay of {{ r.replay_of | cell }}){% endif %} | {{ r.proposed }} |
+{% endfor %}
+
+{% if ai.hypotheses %}
+**Unverified hypotheses** (not findings; listed so they can be checked):
+
+{% for h in ai.hypotheses %}- H{{ h.id }}: {{ h.statement }}{% if h.event_ids %} (events {{ h.event_ids | join(", ") }}){% endif %}{% if h.suggested_checks %} — checks: {{ h.suggested_checks | join("; ") }}{% endif %}{{ "" }}
+{% endfor %}
+{% endif %}
+{% else %}
+No AI-assisted investigation was run for this case.
+{% endif %}
+
+{% if rejected %}
+## Appendix D. Findings dismissed by the analyst
+
+| # | Title | Rule | Analyst note |
+| --- | --- | --- | --- |
+{% for r in rejected %}| {{ r.id }} | {{ r.title | cell }} | `{{ r.rule_id }}` | {{ r.analyst_note | cell }} |
+{% endfor %}
+{% endif %}
+
+---
+_Generated by {{ tool.name }} {{ tool.version }} on {{ tool.platform }} at {{ generated_at }}._

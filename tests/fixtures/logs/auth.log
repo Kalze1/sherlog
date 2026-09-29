@@ -1,0 +1,21 @@
+Dec 31 23:58:01 web01 sshd[1001]: Invalid user admin from 203.0.113.50 port 51234
+Dec 31 23:58:03 web01 sshd[1001]: Failed password for invalid user admin from 203.0.113.50 port 51234 ssh2
+Dec 31 23:58:05 web01 sshd[1002]: Failed password for root from 203.0.113.50 port 51240 ssh2
+Dec 31 23:58:06 web01 sshd[1002]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=203.0.113.50  user=root
+Dec 31 23:59:10 web01 sshd[1003]: Accepted password for deploy from 203.0.113.50 port 51250 ssh2
+Dec 31 23:59:10 web01 sshd[1003]: pam_unix(sshd:session): session opened for user deploy(uid=1001) by (uid=0)
+Jan  1 00:01:00 web01 sudo:   deploy : TTY=pts/0 ; PWD=/home/deploy ; USER=root ; COMMAND=/usr/sbin/useradd -m -s /bin/bash backdoor
+Jan  1 00:01:00 web01 sudo: pam_unix(sudo:session): session opened for user root(uid=0) by deploy(uid=1001)
+Jan  1 00:01:00 web01 useradd[1100]: new group: name=backdoor, GID=1002
+Jan  1 00:01:00 web01 useradd[1100]: new user: name=backdoor, UID=1002, GID=1002, home=/home/backdoor, shell=/bin/bash, from=/dev/pts/0
+Jan  1 00:01:30 web01 usermod[1110]: add 'backdoor' to group 'sudo'
+Jan  1 00:01:30 web01 usermod[1110]: add 'backdoor' to shadow group 'sudo'
+Jan  1 00:02:00 web01 passwd[1120]: pam_unix(passwd:chauthtok): password changed for backdoor
+Jan  1 00:03:00 web01 sudo:   deploy : 3 incorrect password attempts ; TTY=pts/0 ; PWD=/home/deploy ; USER=root ; COMMAND=/bin/cat /etc/shadow
+Jan  1 00:04:00 web01 su: pam_unix(su-l:session): session opened for user root(uid=0) by deploy(uid=1001)
+Jan  1 00:05:00 web01 sshd[1200]: Accepted publickey for backdoor from 198.51.100.7 port 40000 ssh2: ED25519 SHA256:AbCdEf0123456789+/xyz
+Jan  1 00:09:00 web01 sshd[1003]: Disconnected from user deploy 203.0.113.50 port 51250
+Jan  1 00:09:00 web01 sshd[1003]: pam_unix(sshd:session): session closed for user deploy
+Jan  1 00:10:01 web01 CRON[1300]: pam_unix(cron:session): session opened for user root(uid=0) by (uid=0)
+this line is not syslog at all
+Jan  1 00:11:00 web01 systemd-logind[500]: New session 7 of user backdoor.

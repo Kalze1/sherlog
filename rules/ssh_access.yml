@@ -1,0 +1,173 @@
+# SSH and interactive authentication rules.
+# Base rules feed the correlations below; they are not reported individually.
+title: SSH authentication failure
+name: ssh_auth_failure
+id: 5c1e2f9a-0b3d-4a71-9e21-1a0b7c4d1001
+status: stable
+description: A failed SSH authentication attempt. Feeds brute-force and spraying correlations.
+logsource:
+  product: linux
+detection:
+  ssh_fail:
+    event_type: auth.login.failure
+    tags|contains: ssh
+  audit_fail:
+    artifact_type: linux.audit
+    event_type: auth.login.failure
+  condition: ssh_fail or audit_fail
+tags:
+  - attack.credential_access
+  - attack.t1110.001
+x-sherlog:
+  recommendation: Confirm whether the source address is expected; if not, block it and review any later success from it.
+---
+title: SSH authentication success
+name: ssh_auth_success
+id: 5c1e2f9a-0b3d-4a71-9e21-1a0b7c4d1002
+status: stable
+description: A successful SSH login. Feeds the success-after-failures correlation.
+logsource:
+  product: linux
+detection:
+  sel:
+    event_type: auth.login.success
+    tags|contains: ssh
+  condition: sel
+tags:
+  - attack.t1021.004
+x-sherlog:
+  recommendation: Confirm the login is expected.
+---
+title: SSH brute-force attempt
+id: 5c1e2f9a-0b3d-4a71-9e21-1a0b7c4d1003
+status: stable
+description: >
+  Many SSH authentication failures from a single source address in a short
+  window, characteristic of automated password guessing.
+correlation:
+  type: event_count
+  rules:
+    - ssh_auth_failure
+  group-by:
+    - src_ip
+  timespan: 5m
+  condition:
+    gte: 10
+level: high
+tags:
+  - attack.credential_access
+  - attack.t1110.001
+x-sherlog:
+  recommendation: Block the source address at the firewall, confirm no session from it succeeded, and enforce key-only authentication and rate limiting (e.g. fail2ban).
+  confidence: 0.8
+---
+title: SSH password spraying
+id: 5c1e2f9a-0b3d-4a71-9e21-1a0b7c4d1004
+status: stable
+description: >
+  A single source address failed to authenticate against many distinct
+  accounts in a short window, characteristic of password spraying.
+correlation:
+  type: value_count
+  rules:
+    - ssh_auth_failure
+  group-by:
+    - src_ip
+  field: actor
+  timespan: 30m
+  condition:
+    gte: 5
+level: high
+tags:
+  - attack.credential_access
+  - attack.t1110.003
+x-sherlog:
+  recommendation: Block the source address and review all targeted accounts for any successful login or password reuse.
+  confidence: 0.8
+---
+title: Successful SSH login after repeated failures
+id: 5c1e2f9a-0b3d-4a71-9e21-1a0b7c4d1005
+status: stable
+description: >
+  A source address that produced repeated SSH failures then authenticated
+  successfully, suggesting a guessed or stuffed credential.
+correlation:
+  type: temporal_ordered
+  rules:
+    - ssh_auth_failure
+    - ssh_auth_success
+  group-by:
+    - src_ip
+  timespan: 10m
+  condition:
+    gte: 1
+level: critical
+tags:
+  - attack.credential_access
+  - attack.t1110.001
+  - attack.t1078
+x-sherlog:
+  recommendation: Treat the successful session as a likely compromise; reset the account credentials and review everything the account did afterwards.
+  confidence: 0.75
+  group_by:
+    - src_ip
+---
+title: Root login over SSH
+id: 5c1e2f9a-0b3d-4a71-9e21-1a0b7c4d1006
+status: stable
+description: An interactive SSH session authenticated directly as root.
+logsource:
+  product: linux
+detection:
+  sel:
+    event_type: auth.login.success
+    tags|contains: ssh
+    actor: root
+  condition: sel
+level: medium
+tags:
+  - attack.t1078.003
+  - attack.t1021.004
+falsepositives:
+  - Environments that legitimately permit direct root SSH for automation.
+x-sherlog:
+  recommendation: Disable direct root SSH (PermitRootLogin no) and require named accounts with sudo; confirm this session was authorised.
+  confidence: 0.6
+  group_by:
+    - src_ip
+    - actor
+---
+title: Off-hours interactive login
+id: 5c1e2f9a-0b3d-4a71-9e21-1a0b7c4d1007
+status: experimental
+description: >
+  An interactive login occurred during night-time hours (22:00-06:00 in the
+  case timezone), when routine administrative access is less expected.
+logsource:
+  product: linux
+detection:
+  sel:
+    event_type: auth.login.success
+    tags|contains: ssh
+  night:
+    hour_local:
+      - 22
+      - 23
+      - 0
+      - 1
+      - 2
+      - 3
+      - 4
+      - 5
+  condition: sel and night
+level: low
+tags:
+  - attack.t1078
+falsepositives:
+  - Administrators or batch jobs that legitimately run overnight.
+x-sherlog:
+  recommendation: Confirm the account owner intended to log in at this hour.
+  confidence: 0.4
+  group_by:
+    - actor
+    - src_ip

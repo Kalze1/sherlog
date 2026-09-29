@@ -1,0 +1,9 @@
+2024-05-01 10:20:00 startup archives unpack
+2024-05-01 10:20:01 install netcat-traditional:amd64 <none> 1.10-47
+2024-05-01 10:20:01 status half-installed netcat-traditional:amd64 1.10-47
+2024-05-01 10:20:02 status unpacked netcat-traditional:amd64 1.10-47
+2024-05-01 10:20:02 configure netcat-traditional:amd64 1.10-47 <none>
+2024-05-01 10:20:02 status installed netcat-traditional:amd64 1.10-47
+2024-05-01 10:25:00 upgrade openssh-server:amd64 1:8.9p1-3ubuntu0.6 1:8.9p1-3ubuntu0.10
+2024-05-01 10:30:00 remove auditd:amd64 1:3.0.7-1build1 <none>
+2024-05-01 10:30:01 purge auditd:amd64 1:3.0.7-1build1 <none>

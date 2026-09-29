@@ -1,0 +1,190 @@
+# Shell command and anti-forensics rules.
+# Match shell history commands, sudo/audit command lines, and cron commands.
+title: Reverse shell one-liner
+id: 1a2b3c4d-4444-4c55-9d04-5e6f7a8b5001
+status: stable
+description: >
+  A command that opens an interactive shell back to a remote host (bash /dev/tcp,
+  netcat, socat, or a scripting-language reverse shell).
+logsource:
+  product: linux
+detection:
+  cmd_fields:
+    command|re|i: "(bash|sh)\\s+-i\\s+.*/dev/tcp/|/dev/tcp/[0-9]|nc(\\.\\w+)?\\s+.*-e\\s|mkfifo\\s+.*(nc|/dev/tcp)|socat\\s+.*exec|python[0-9]?\\s+-c\\s+.*(socket|pty\\.spawn)|perl\\s+-e\\s+.*socket|ruby\\s+-.*TCPSocket|php\\s+-r\\s+.*fsockopen"
+  raw_fallback:
+    tags|contains: shell
+    raw|re|i: "/dev/tcp/[0-9]|nc\\s+.*-e\\s+/|mkfifo.*nc\\s"
+  condition: cmd_fields or raw_fallback
+level: critical
+tags:
+  - attack.execution
+  - attack.command_and_control
+  - attack.t1059.004
+x-sherlog:
+  recommendation: Identify the remote host and port; treat the session as an active intrusion and preserve process and network evidence.
+  confidence: 0.8
+  group_by:
+    - actor
+---
+title: Download piped directly to a shell
+id: 1a2b3c4d-4444-4c55-9d04-5e6f7a8b5002
+status: stable
+description: A command that downloads content and pipes it straight into a shell interpreter.
+logsource:
+  product: linux
+detection:
+  sel:
+    command|re|i: "(curl|wget|fetch)\\b[^|]*\\|\\s*(sudo\\s+)?(ba)?sh\\b|(curl|wget)\\b[^|]*\\|\\s*python"
+  condition: sel
+level: high
+tags:
+  - attack.execution
+  - attack.command_and_control
+  - attack.t1059.004
+  - attack.t1105
+x-sherlog:
+  recommendation: Retrieve the downloaded URL's content if still available; determine what was executed and from where.
+  confidence: 0.8
+  group_by:
+    - actor
+---
+title: Base64-decoded content piped to a shell
+id: 1a2b3c4d-4444-4c55-9d04-5e6f7a8b5003
+status: stable
+description: An obfuscated command that base64-decodes a payload and executes it.
+logsource:
+  product: linux
+detection:
+  sel:
+    command|re|i: "base64\\s+(-d|--decode|-di)\\b[^|]*\\|\\s*(ba)?sh|echo\\s+[A-Za-z0-9+/=]{20,}\\s*\\|\\s*base64\\s+-d|python[0-9]?\\s+-c\\s+.*base64|eval\\s+.*base64"
+  condition: sel
+level: high
+tags:
+  - attack.execution
+  - attack.defense_evasion
+  - attack.t1027.010
+  - attack.t1140
+x-sherlog:
+  recommendation: Decode the payload to recover the executed command and pivot on any host or file it references.
+  confidence: 0.75
+  group_by:
+    - actor
+---
+title: Command history cleared
+id: 1a2b3c4d-4444-4c55-9d04-5e6f7a8b5004
+status: stable
+description: >
+  Shell history was cleared or disabled (history -c, truncating a history file,
+  or unsetting HISTFILE) — an anti-forensic action.
+logsource:
+  product: linux
+detection:
+  sel:
+    command|re|i: "history\\s+-c|>\\s*~?/?\\.?(bash|zsh|sh)_history|rm\\s+.*\\.(bash|zsh|sh)_history|unset\\s+HISTFILE|export\\s+HISTFILE(SIZE)?=0|ln\\s+-s[a-z]*\\s+/dev/null\\s+.*history|set\\s+\\+o\\s+history"
+  condition: sel
+level: high
+tags:
+  - attack.defense_evasion
+  - attack.t1070.003
+x-sherlog:
+  recommendation: Note the anti-forensic action in the timeline; reconstruct activity from other sources (audit, wtmp, network logs) around this time.
+  confidence: 0.7
+  group_by:
+    - actor
+---
+title: Log deletion or truncation
+id: 1a2b3c4d-4444-4c55-9d04-5e6f7a8b5005
+status: stable
+description: A command that deletes or empties system logs under /var/log.
+logsource:
+  product: linux
+detection:
+  sel:
+    command|re|i: "(rm|shred|unlink)\\s+.*(/var/log|/var/log/\\*)|>\\s*/var/log/|truncate\\s+.*-s\\s*0\\s+/var/log|:\\s*>\\s*/var/log|cat\\s+/dev/null\\s*>\\s*/var/log"
+  condition: sel
+level: high
+tags:
+  - attack.defense_evasion
+  - attack.t1070.002
+  - attack.t1485
+x-sherlog:
+  recommendation: Determine which logs were destroyed and recover them from backups or forwarded copies; treat affected logs as unreliable.
+  confidence: 0.75
+  group_by:
+    - actor
+---
+title: Timestomping or attribute tampering
+id: 1a2b3c4d-4444-4c55-9d04-5e6f7a8b5006
+status: stable
+description: >
+  A command that alters file timestamps (touch -r/-t/-d, or copies timestamps)
+  or sets the immutable attribute (chattr +i), used to hide tampering.
+logsource:
+  product: linux
+detection:
+  timestomp:
+    command|re|i: "touch\\s+(-[a-z]*)?(-r\\s|\\s-t\\s|\\s-d\\s|--reference|--date)|chattr\\s+[-+][a-zA-Z]*i"
+  condition: timestomp
+level: medium
+tags:
+  - attack.defense_evasion
+  - attack.t1070.006
+  - attack.t1222.002
+falsepositives:
+  - Build systems and backup tools that legitimately preserve timestamps with touch -r or rsync.
+x-sherlog:
+  recommendation: Do not trust file timestamps for the affected paths; corroborate the timeline with log-based events and inode change times.
+  confidence: 0.5
+  group_by:
+    - actor
+---
+title: Audit or logging subsystem disabled
+id: 1a2b3c4d-4444-4c55-9d04-5e6f7a8b5007
+status: stable
+description: >
+  The Linux audit daemon or logging service was stopped or disabled, or auditd
+  reported being disabled via a configuration change.
+logsource:
+  product: linux
+detection:
+  audit_stop:
+    tags|contains: audit_stopped
+  audit_disabled:
+    tags|contains: audit_disabled
+  cmd:
+    command|re|i: "(systemctl|service)\\s+(stop|disable|mask)\\s+(auditd|rsyslog|syslog)|auditctl\\s+-e\\s*0|pkill\\s+.*(auditd|rsyslog)|kill.*\\bauditd\\b"
+  condition: audit_stop or audit_disabled or cmd
+level: high
+tags:
+  - attack.defense_evasion
+  - attack.t1562.001
+  - attack.t1562.012
+x-sherlog:
+  recommendation: Establish when logging stopped and what happened during the blind period; treat the interval as unmonitored.
+  confidence: 0.7
+  group_by:
+    - actor
+    - host
+---
+title: Sensitive credential file read
+id: 1a2b3c4d-4444-4c55-9d04-5e6f7a8b5008
+status: stable
+description: A command that reads /etc/shadow or private SSH keys, indicating credential access.
+logsource:
+  product: linux
+detection:
+  sel:
+    command|re|i: "(cat|less|more|head|tail|cp|scp|nano|vi|vim|strings|xxd|base64)\\s+.*(/etc/shadow|/etc/gshadow|id_rsa\\b|id_ed25519\\b|id_ecdsa\\b|/\\.ssh/id_)"
+  condition: sel
+level: high
+tags:
+  - attack.credential_access
+  - attack.t1003.008
+  - attack.t1552.004
+falsepositives:
+  - Backup or administrative scripts that legitimately read these files.
+x-sherlog:
+  recommendation: If the access was unauthorised, rotate the affected credentials and SSH keys.
+  confidence: 0.6
+  group_by:
+    - actor

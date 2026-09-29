@@ -1,0 +1,6 @@
+Dec 31 23:59:00 : deploy : TTY=pts/0 ; PWD=/home/deploy ; USER=root ;
+    COMMAND=/usr/bin/id
+Jan  1 00:01:00 : deploy : TTY=pts/0 ; PWD=/home/deploy ; USER=root ;
+    COMMAND=/usr/sbin/useradd -m -s /bin/bash -G sudo backdoor
+Jan  1 00:03:00 2025 : deploy : 3 incorrect password attempts ; TTY=pts/0 ;
+    PWD=/home/deploy ; USER=root ; COMMAND=/bin/cat /etc/shadow

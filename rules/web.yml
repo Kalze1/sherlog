@@ -1,0 +1,162 @@
+# Web server request rules. Matched against web.access events (fields in extra).
+title: SQL injection attempt in web request
+id: 9d8c7b6a-3333-4b44-9c03-4d5e6f7a4001
+status: stable
+description: A web request whose URL or query contains SQL injection patterns.
+logsource:
+  product: linux
+  category: webserver
+detection:
+  sel:
+    event_type: web.request
+  sqli:
+    target|re|i: "(union(\\s|/\\*.*\\*/|\\+)+select|select.+from|\\bor\\s+1\\s*=\\s*1\\b|'\\s*or\\s*'|sleep\\s*\\(|benchmark\\s*\\(|information_schema|\\bunion\\b.*\\bselect\\b|concat\\s*\\(|load_file\\s*\\(|into\\s+outfile)"
+  condition: sel and sqli
+level: high
+tags:
+  - attack.initial_access
+  - attack.t1190
+falsepositives:
+  - Security scanners run with authorisation; application URLs that legitimately contain SQL keywords.
+x-sherlog:
+  recommendation: Check the HTTP status and response size to judge whether the injection succeeded; review the application and database for compromise.
+  confidence: 0.6
+  group_by:
+    - src_ip
+---
+title: Local/remote file inclusion or path traversal
+id: 9d8c7b6a-3333-4b44-9c03-4d5e6f7a4002
+status: stable
+description: A web request attempting directory traversal or file inclusion.
+logsource:
+  product: linux
+  category: webserver
+detection:
+  sel:
+    event_type: web.request
+  lfi:
+    target|re|i: "(\\.\\./|\\.\\.%2f|%2e%2e%2f|/etc/passwd|/etc/shadow|/proc/self/environ|php://(filter|input)|data://|expect://|file=/|=file:)"
+  condition: sel and lfi
+level: high
+tags:
+  - attack.t1190
+  - attack.t1083
+falsepositives:
+  - Authorised vulnerability scans.
+x-sherlog:
+  recommendation: Determine whether sensitive files were disclosed (status 200 with a non-trivial response); patch the vulnerable parameter.
+  confidence: 0.6
+  group_by:
+    - src_ip
+---
+title: Command injection or RCE pattern in web request
+id: 9d8c7b6a-3333-4b44-9c03-4d5e6f7a4003
+status: stable
+description: A web request containing shell metacharacters or command-execution patterns.
+logsource:
+  product: linux
+  category: webserver
+detection:
+  sel:
+    event_type: web.request
+  rce:
+    target|re|i: "(;\\s*(id|whoami|uname|cat|ls|wget|curl|bash|sh|nc)\\b|\\|\\s*(bash|sh|nc)\\b|`[^`]+`|\\$\\([^)]+\\)|%3b|/bin/(ba)?sh|cmd=|exec=|system\\(|passthru\\(|shell_exec)"
+  condition: sel and rce
+level: critical
+tags:
+  - attack.t1190
+  - attack.t1059.004
+x-sherlog:
+  recommendation: Assume command execution may have succeeded; inspect the web server process tree, look for a spawned shell or web shell, and isolate the host.
+  confidence: 0.65
+  group_by:
+    - src_ip
+---
+title: Web shell access
+id: 9d8c7b6a-3333-4b44-9c03-4d5e6f7a4004
+status: stable
+description: >
+  A request to a script in an upload/writable directory or with a
+  command-style parameter, characteristic of interacting with a web shell.
+logsource:
+  product: linux
+  category: webserver
+detection:
+  sel:
+    event_type: web.request
+  shell_path:
+    target|re|i: "/(uploads?|images?|tmp|cache|files?|media|assets|static)/[^ ?]*\\.(php|jsp|asp|aspx|phtml|php[3457]|pl|cgi)"
+  cmd_param:
+    target|re|i: "\\.(php|jsp|asp|aspx|phtml)\\?.*(cmd|exec|command|shell|c=|cmd=|passthru|whoami|system)="
+  known_shells:
+    target|re|i: "(c99|r57|b374k|wso|weevely|antsword|china.?chopper|/shell\\.|/cmd\\.|/backdoor)"
+  condition: sel and (shell_path or cmd_param or known_shells)
+level: critical
+tags:
+  - attack.persistence
+  - attack.t1505.003
+falsepositives:
+  - Legitimate scripts that happen to live under an uploads/media path.
+x-sherlog:
+  recommendation: Locate the script on disk, capture it, and remove it; review how it was uploaded and what commands were run through it.
+  confidence: 0.7
+  group_by:
+    - src_ip
+    - target
+---
+title: Scanner or offensive-tool user agent
+id: 9d8c7b6a-3333-4b44-9c03-4d5e6f7a4005
+status: stable
+description: A web request whose User-Agent identifies a known scanner or exploitation tool.
+logsource:
+  product: linux
+  category: webserver
+detection:
+  sel:
+    event_type: web.request
+  ua:
+    extra.user_agent|re|i: "(sqlmap|nikto|nmap|masscan|acunetix|nessus|openvas|dirbuster|gobuster|feroxbuster|wpscan|hydra|metasploit|nuclei|zgrab|zmeu|w3af|arachni|havij|curl/|python-requests|go-http-client|libwww-perl)"
+  condition: sel and ua
+level: medium
+tags:
+  - attack.reconnaissance
+  - attack.t1595.002
+falsepositives:
+  - Authorised scanning; scripts and monitors that legitimately use curl, requests or Go HTTP clients.
+x-sherlog:
+  recommendation: Correlate the source address with any successful exploitation; if unauthorised, block it and review targeted endpoints.
+  confidence: 0.45
+  group_by:
+    - src_ip
+---
+title: Large response to an unusual path
+id: 9d8c7b6a-3333-4b44-9c03-4d5e6f7a4006
+status: experimental
+description: >
+  A successful request returned an unusually large response (>1 MB) to a
+  script or sensitive path, which can indicate data exfiltration or a file
+  read through the web server.
+logsource:
+  product: linux
+  category: webserver
+detection:
+  sel:
+    event_type: web.request
+    extra.status|gte: 200
+    extra.status|lt: 300
+    extra.bytes|gt: 1000000
+  path:
+    target|re|i: "\\.(php|jsp|asp|aspx|cgi|pl|py)(\\?|$)|/(download|export|backup|dump|db)"
+  condition: sel and path
+level: medium
+tags:
+  - attack.exfiltration
+  - attack.t1048
+falsepositives:
+  - Legitimate large downloads or exports.
+x-sherlog:
+  recommendation: Confirm the response corresponds to authorised data access; investigate large transfers from dynamic scripts.
+  confidence: 0.4
+  group_by:
+    - src_ip
+    - target

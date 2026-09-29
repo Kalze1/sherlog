@@ -1,0 +1,13 @@
+type=DAEMON_START msg=audit(1714557600.000:1): op=start ver=3.0.7 format=raw kernel=5.15.0-91-generic auid=4294967295 pid=500 uid=0 ses=4294967295 res=success
+type=USER_AUTH msg=audit(1714557601.100:20): pid=2001 uid=0 auid=4294967295 ses=4294967295 msg='op=PAM:authentication grantors=? acct="root" exe="/usr/sbin/sshd" hostname=203.0.113.50 addr=203.0.113.50 terminal=ssh res=failed'
+type=USER_LOGIN msg=audit(1714557601.200:21): pid=2001 uid=0 auid=4294967295 ses=4294967295 msg='op=login acct="root" exe="/usr/sbin/sshd" hostname=? addr=203.0.113.50 terminal=sshd res=failed'
+type=USER_LOGIN msg=audit(1714557700.000:30): pid=2002 uid=0 auid=1001 ses=5 msg='op=login id=1001 exe="/usr/sbin/sshd" hostname=? addr=203.0.113.50 terminal=/dev/pts/0 res=success'
+type=USER_CMD msg=audit(1714557760.000:40): pid=2100 uid=1001 auid=1001 ses=5 msg='cwd="/home/deploy" cmd=7573657261646420626164 exe="/usr/bin/sudo" terminal=pts/0 res=success'
+type=ADD_USER msg=audit(1714557761.000:41): pid=2101 uid=0 auid=1001 ses=5 msg='op=add-user acct="bad" exe="/usr/sbin/useradd" hostname=web01 addr=? terminal=pts/0 res=success'
+type=SYSCALL msg=audit(1714557762.000:42): arch=c000003e syscall=59 success=yes exit=0 a0=10 a1=55e a2=55f a3=0 items=2 ppid=2100 pid=2102 auid=1001 uid=0 gid=0 euid=0 comm="nc" exe="/usr/bin/nc.openbsd" key="exec_watch"
+type=EXECVE msg=audit(1714557762.000:42): argc=3 a0="nc" a1="-e" a2=2F62696E2F7368
+type=PROCTITLE msg=audit(1714557762.000:42): proctitle=6E63002D65002F62696E2F7368
+type=SERVICE_STOP msg=audit(1714557800.000:50): pid=1 uid=0 auid=4294967295 ses=4294967295 msg='unit=auditd comm="systemd" exe="/usr/lib/systemd/systemd" hostname=? addr=? terminal=? res=success'
+type=DAEMON_END msg=audit(1714557801.000:51): op=terminate auid=0 uid=0 ses=5 pid=1 res=success
+type=CONFIG_CHANGE msg=audit(1714557802.000:52): op=set audit_enabled=0 old=1 auid=1001 ses=5 res=1
+this is not an audit record

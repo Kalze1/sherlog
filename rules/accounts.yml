@@ -1,0 +1,130 @@
+# Account and privilege change rules.
+title: New local account created
+id: 8a2b1c4d-1111-4e22-8a01-2b3c4d5e2001
+status: stable
+description: A local user account was created (useradd or an ADD_USER audit record).
+logsource:
+  product: linux
+detection:
+  sel:
+    event_type: user.create
+  condition: sel
+level: medium
+tags:
+  - attack.persistence
+  - attack.t1136.001
+falsepositives:
+  - Legitimate provisioning of service or user accounts.
+x-sherlog:
+  recommendation: Confirm the account was created through an approved change; if not, disable it and review what it did.
+  confidence: 0.6
+  group_by:
+    - target
+---
+title: User added to a privileged group
+id: 8a2b1c4d-1111-4e22-8a01-2b3c4d5e2002
+status: stable
+description: An account was added to sudo, wheel, admin, adm or root — granting elevated privilege.
+logsource:
+  product: linux
+detection:
+  sel:
+    event_type: group.modify
+  priv:
+    tags|re|i: 'group:(sudo|wheel|admin|adm|root)'
+  condition: sel and priv
+level: high
+tags:
+  - attack.persistence
+  - attack.privilege_escalation
+  - attack.t1098
+falsepositives:
+  - Approved administrator onboarding.
+x-sherlog:
+  recommendation: Confirm the group change was authorised; if not, remove the account from the group and investigate how the change was made.
+  confidence: 0.7
+  group_by:
+    - target
+---
+title: sudoers configuration modified
+id: 8a2b1c4d-1111-4e22-8a01-2b3c4d5e2003
+status: stable
+description: A change to /etc/sudoers or /etc/sudoers.d, which governs privilege elevation.
+logsource:
+  product: linux
+detection:
+  audit_path:
+    artifact_type: linux.audit
+    extra.name|contains: '/etc/sudoers'
+  command_ref:
+    command|contains:
+      - '/etc/sudoers'
+      - 'visudo'
+  condition: audit_path or command_ref
+level: high
+tags:
+  - attack.privilege_escalation
+  - attack.t1548.003
+falsepositives:
+  - Approved configuration management runs (Ansible, Puppet) editing sudoers.
+x-sherlog:
+  recommendation: Review the resulting sudoers content for unexpected NOPASSWD or ALL grants and confirm the change was authorised.
+  confidence: 0.6
+  group_by:
+    - actor
+    - target
+---
+title: Password changed for another user
+id: 8a2b1c4d-1111-4e22-8a01-2b3c4d5e2004
+status: stable
+description: >
+  An account's password was changed by a different account (for example an
+  attacker resetting a victim's or service account's password).
+logsource:
+  product: linux
+detection:
+  sel:
+    event_type: password.change
+    actor|exists: true
+  self_change:
+    actor|fieldref: target
+  condition: sel and not self_change
+level: medium
+tags:
+  - attack.persistence
+  - attack.t1098
+falsepositives:
+  - Help-desk or administrator password resets.
+x-sherlog:
+  recommendation: Confirm the reset was a legitimate administrative action and notify the affected account owner.
+  confidence: 0.5
+  group_by:
+    - target
+    - actor
+---
+title: Non-root account with UID 0
+id: 8a2b1c4d-1111-4e22-8a01-2b3c4d5e2005
+status: stable
+description: >
+  An account other than root was created with UID 0, giving it full root
+  privileges — a classic persistence backdoor.
+logsource:
+  product: linux
+detection:
+  sel:
+    event_type: user.create
+    tags|contains: 'uid:0'
+  not_root:
+    target: root
+  condition: sel and not not_root
+level: critical
+tags:
+  - attack.persistence
+  - attack.privilege_escalation
+  - attack.t1136.001
+  - attack.t1078.003
+x-sherlog:
+  recommendation: Remove or lock the account immediately; a second UID 0 account is almost never legitimate.
+  confidence: 0.9
+  group_by:
+    - target
